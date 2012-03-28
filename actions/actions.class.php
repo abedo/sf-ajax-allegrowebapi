@@ -193,11 +193,13 @@ class allegroActions extends sfActions {
 		$allegro = new AllegroWebAPI();
 		$allegro->Login();
 		$list = $allegro->$method($new_options);
-		
-		//print_r($list);
-		//exit;
-		
-		$list_array = @$allegro->objectToArray($list[0]);
+	
+		if (is_object($list[0])) {
+		    $list_array = @$allegro->objectToArray($list[0]);
+		} else {
+		    $list_array = @$allegro->objectToArray($list);
+		}		
+		//$list_array = @$allegro->objectToArray($list[0]);
 
 		$out = $this->makeTable($list_array);
 		
@@ -205,7 +207,10 @@ class allegroActions extends sfActions {
 		echo json_encode($out_array);
 		exit;
 	    } catch (SoapFault $fault) {
-		print($fault->faultstring);
+		//print($fault->faultstring);
+		$out_array = array('html' => $fault->faultstring);
+		echo json_encode($out_array);
+		exit;
 	    }
 	}
 	exit;
