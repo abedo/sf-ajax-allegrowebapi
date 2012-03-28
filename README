@@ -1,0 +1,9 @@
+sf-ajax-allegrowebapi
+
+Dynamiczne przeglądanie Allegro WebAPI w symfony poprzez Ajax
+
+Potrzebujesz:
+1. PHP 5.
+2. projekt i aplikację we frameworku symfony
+3. ALLEGRO_ID i ALLEGRO_KEY
+4. klasę PHP AllegroWebAPI - do pobrania z allegro.pl
