@@ -18,7 +18,6 @@ define('ALLEGRO_COUNTRY', 228);
  * GetShopCatsData
  *
  */
-require_once 'LicenseCheck.php';
 
 class allegroActions extends sfActions {
 
@@ -29,10 +28,6 @@ class allegroActions extends sfActions {
     public function executeIndex() {
 	$this->class_methods = get_class_methods(new AllegroWebAPI());
 	natcasesort($this->class_methods);
-
-//	foreach ($class_methods as $method_name) {
-//	    echo "$method_name\n";
-//	}
     }
 
     public function executeList() {
@@ -45,10 +40,8 @@ class allegroActions extends sfActions {
 	    $allegro = new AllegroWebAPI();
 	    $allegro->Login();
 	    $cats_list = $allegro->GetCatsData();
-	    //print_r(@$allegro->objectToArray($cats_list));
 	    $cats_list_array = @$allegro->objectToArray($cats_list);
 	    $this->cats_list_array_ids = $cats_list_array['cats-list'];
-	    //print_r($cats_list_array_ids);
 
 	    $ret = array('root' => array());
 	    $ref[0] = & $ret['root'];
@@ -95,16 +88,18 @@ class allegroActions extends sfActions {
 			    preg_match_all(
 				    sprintf('{\$%s\[[\'"](.*)[\'"]\]}', $parameter->getName()), $methodBody, $matches
 			    );
+			    preg_match_all(
+				    sprintf('{\$(%s)[,\n]?\r\n}', $parameter->getName()), $methodBody, $matches2
+			    );
 			}
-			//print_r($matches);
 		    }
 		    $out = 'metoda wymaga parametrów';
 		    $out .= '<br /><b>'.$method.'</b>';
 		    $out .= '<input type="hidden" id="method_name" value="'.$method.'" />';
 		    //$out .= '<pre>';
 		    //$out .= json_encode($matches[1]);
-		    //$out .= $this->makeList($matches[1]);
 		    $out .= $this->makeForm($matches[1]);
+			$out .= $this->makeInput($matches2[1]);
 		    $out .= '<input type="button" onclick="ajaxSendParams(); return false;" value="Send params" />';
 		    //$out .= '<pre>';
 		} else {
@@ -148,32 +143,13 @@ class allegroActions extends sfActions {
 	}
     }
 
-    public function executeDoGetSellFormFieldsExt() {
-	try {
-	    $allegro = new AllegroWebAPI();
-	    $allegro->Login();
-
-	    $form_fields = $allegro->GetSellFormFieldsExt();
-	    //print_r(@$allegro->objectToArray($cats_list));
-	    $form_fields_array = @$allegro->objectToArray($form_fields);
-
-	    $this->sell_form_fields = $form_fields_array['sell-form-fields'];
-//		echo "<pre>";
-//		print_r($this->sell_form_fields);
-//		echo "</pre>";
-	} catch (SoapFault $fault) {
-	    print($fault->faultstring);
-	}
-    }
-
     public function executePopulate() {
 	$this->setLayout(false);
-	if ($this->hasRequestParameter('options')) {
+	if ($this->hasRequestParameter('options') || $this->hasRequestParameter('inputs')) {
 	    $options = $this->getRequestParameter('options');
+		$inputs = $this->getRequestParameter('inputs');
 	    $new_options = array();
 	    foreach ($options as $option => $option_value) {
-//		var_dump($option.$option_value);
-//		var_dump(strpos($option, 'array'));
 
 		if (strpos($option, 'array') > 0) {
 		    if ($option_value != '') {
@@ -186,21 +162,17 @@ class allegroActions extends sfActions {
 		}
 	    }
 
-	    //print_r($new_options);
-
 	    $method = $this->getRequestParameter('method');
 	    try {
 		$allegro = new AllegroWebAPI();
 		$allegro->Login();
-		$list = $allegro->$method($new_options);
-	
-		if (is_object($list[0])) {
-		    $list_array = @$allegro->objectToArray($list[0]);
+		if ($new_options) {
+		    $list = $allegro->$method($new_options);
 		} else {
-		    $list_array = @$allegro->objectToArray($list);
-		}		
-		//$list_array = @$allegro->objectToArray($list[0]);
+		    $list = $allegro->$method($inputs);
+		}
 
+		$list_array = $this->object2Array($list);
 		$out = $this->makeTable($list_array);
 		
 		$out_array = array('html' => $out);
@@ -250,6 +222,21 @@ class allegroActions extends sfActions {
 	return $output;
     }
 
+    public function makeInput($array) {
+
+	//Base case: an empty array produces no list 
+	if (empty($array))
+	    return '';
+
+	//Recursive Step: make a list with child lists 
+	$output = '<ul>';
+	foreach ($array as $key => $subArray) {
+	    $output .= '<li>'.$key.' '.(is_array($subArray) ? $this->makeList($subArray) : $subArray.'<input type="text" id="'.$subArray.'" name="inputs" />').'</li>';
+	}
+	$output .= '</ul>';
+	return $output;
+    }
+	
     public function makeTable($array, $is_row_content = false) {
 
 	//Base case: an empty array produces no list 
@@ -302,6 +289,18 @@ class allegroActions extends sfActions {
 	}
 
 	//exit;
+    }
+	
+    public function object2Array($d) {
+	if (is_object($d)) {
+	    $d = get_object_vars($d);
+	}
+
+	if (is_array($d)) {
+	    return array_map(array($this,'object2Array'), $d);
+	} else {
+	    return $d;
+	}
     }
 
 }
